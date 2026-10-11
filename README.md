@@ -1,5 +1,7 @@
 # First Frets
 
+**Live site:** https://sampushstack.github.io/guitartuner/
+
 A friendly guitar tuner and chord coach for beginners of every age, from 10 to 70 and beyond.
 
 ## What's inside
@@ -23,6 +25,10 @@ python3 -m http.server 8000
 ```
 
 The microphone needs a secure context: `localhost` works, and so does any `https://` host (GitHub Pages, Netlify and so on). Over plain `http://` on another host, the tuner falls back to tune-by-ear reference notes.
+
+## Deploying
+
+Every push to `main` publishes the site to GitHub Pages through `.github/workflows/pages.yml`. Only `index.html`, `css/`, `js/` and `vendor/` are published.
 
 ## How it works
 
