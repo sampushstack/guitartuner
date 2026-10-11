@@ -22,8 +22,10 @@
     } catch (e) { /* storage unavailable: start fresh */ }
     return defaults();
   }
+  const progressListeners = [];
   function save() {
     try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
+    progressListeners.forEach((cb) => cb(Progress.pick(state)));
   }
   function dayKey(offset = 0) {
     const d = new Date();
@@ -945,6 +947,24 @@
     $('#pl-bpm-out').textContent = e.target.value;
     songClock.bpm = Number(e.target.value);
   });
+
+  /* ================= account bridge ================= */
+  // js/account.js (optional sign-in) uses this to sync a player's progress between devices.
+  window.FirstFrets = {
+    progress: () => Progress.pick(state),
+    applyProgress(p) {
+      Object.assign(state, Progress.pick(p));
+      save();
+      renderStats();
+      renderPath();
+      renderChord();
+      renderSongList();
+      renderChallengeBest();
+    },
+    onProgressChange(cb) { progressListeners.push(cb); },
+    toast,
+    confetti: (n) => confetti.burst(n),
+  };
 
   /* ================= boot ================= */
   if (!CHORDS[state.chord]) state.chord = 'Em7';

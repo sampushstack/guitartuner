@@ -1,0 +1,41 @@
+name: Deploy to Firebase Hosting
+
+# Pushes to main go live. Pull requests get a temporary preview link, posted on the PR.
+# Needs: repository secret FIREBASE_SERVICE_ACCOUNT and repository variable FIREBASE_PROJECT_ID
+# (see README, "Moving to Firebase").
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+jobs:
+  deploy:
+    # Forks can't read the deploy secret, so only run for branches in this repository.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the Firebase settings exist
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          PROJECT: ${{ vars.FIREBASE_PROJECT_ID }}
+        run: |
+          if [ -z "$SA" ] || [ -z "$PROJECT" ]; then
+            echo "::error::Add the FIREBASE_SERVICE_ACCOUNT secret and FIREBASE_PROJECT_ID variable (README, 'Moving to Firebase')."
+            exit 1
+          fi
+
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: ${{ vars.FIREBASE_PROJECT_ID }}
+          # 'live' for main; a per-PR preview channel (expires after 7 days) for pull requests.
+          channelId: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.number) || 'live' }}

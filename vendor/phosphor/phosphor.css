@@ -21,6 +21,12 @@
 .ph-bold.ph-speaker-high:before{content:"\e44a"}
 .ph-bold.ph-timer:before{content:"\e492"}
 .ph-bold.ph-playlist:before{content:"\e6aa"}
+.ph-bold.ph-user-circle:before{content:"\e4c4"}
+.ph-bold.ph-x:before{content:"\e4f6"}
+.ph-bold.ph-cloud-check:before{content:"\e1b0"}
+.ph-bold.ph-sign-out:before{content:"\e42a"}
+.ph-bold.ph-trash:before{content:"\e4a6"}
+.ph-bold.ph-x-logo:before{content:"\e4bc"}
 @font-face{font-family:"Phosphor-Fill";src:url("./Phosphor-Fill.woff2") format("woff2");font-weight:normal;font-style:normal;font-display:block}
 .ph-fill{font-family:"Phosphor-Fill"!important;speak:never;font-style:normal;font-weight:normal;font-variant:normal;text-transform:none;line-height:1;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 .ph-fill.ph-star:before{content:"\e46a"}
@@ -28,3 +34,7 @@
 .ph-fill.ph-check-circle:before{content:"\e184"}
 .ph-fill.ph-play:before{content:"\e3d0"}
 .ph-fill.ph-stop:before{content:"\e46c"}
+.ph-fill.ph-facebook-logo:before{content:"\e226"}
+.ph-fill.ph-apple-logo:before{content:"\e516"}
+.ph-fill.ph-windows-logo:before{content:"\e692"}
+.ph-fill.ph-github-logo:before{content:"\e576"}
