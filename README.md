@@ -1,6 +1,6 @@
 # First Frets
 
-**Live site:** https://sampushstack.github.io/guitartuner/ (moving to Firebase Hosting, see below)
+**Live site:** https://sampushstack.github.io/guitartuner/ (also on Firebase Hosting once set up, see below)
 
 A friendly guitar tuner and chord coach for beginners of every age, from 10 to 70 and beyond.
 
@@ -29,6 +29,8 @@ The microphone needs a secure context: `localhost` works, and so does any `https
 ## Moving to Firebase
 
 The site runs on **Firebase Hosting**, with **Firebase Authentication** for social sign-in and **Cloud Firestore** for synced progress. Every push to `main` deploys through `.github/workflows/firebase-hosting.yml`, and each pull request gets a preview link.
+
+GitHub Pages keeps running alongside it (`.github/workflows/pages.yml`), so both addresses stay live. Sign-in only appears on the Firebase address; the GitHub Pages copy works as before, with progress kept on the device.
 
 One-time setup, all in the browser:
 
@@ -61,7 +63,7 @@ Merge the pull request. The site deploys to `https://YOUR-PROJECT-ID.web.app`.
 
 ### 6. Afterwards
 - **Custom domain:** Firebase console → **Hosting → Add custom domain**, then follow its DNS steps. Also add the domain under **Authentication → Settings → Authorized domains**, and its `/__/auth/handler` URL to Facebook's redirect URIs.
-- **Retire GitHub Pages:** repository **Settings → Pages → Unpublish site**. Progress saved on the old address stays in those browsers; players can sign in on the new address to carry it over from now on.
+- **GitHub Pages stays on** for now. If you later retire it: delete `.github/workflows/pages.yml`, then **Settings → Pages → Unpublish site**. Progress saved on that address stays in those browsers.
 
 ### Local testing with the emulators
 ```sh
