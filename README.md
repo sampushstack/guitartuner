@@ -26,7 +26,7 @@ The microphone needs a secure context: `localhost` works, and so does any `https
 
 ## How it works
 
-- `js/audio.js`: Karplus–Strong plucked-string synthesis for reference notes and strums, metronome clicks, a look-ahead scheduler, microphone input, YIN pitch detection for the tuner, and a pitch-class (chroma) analysis for chord checking.
+- `js/audio.js`: Karplus-Strong plucked-string synthesis for reference notes and strums, metronome clicks, a look-ahead scheduler, microphone input, YIN pitch detection for the tuner, and a pitch-class (chroma) analysis for chord checking.
 - `js/data.js`: tuning, chord shapes and fingerings, learning stages and songs.
 - `js/app.js`: the interface.
 - `css/style.css`: design tokens and styles.

@@ -1,4 +1,4 @@
-/* First Frets — sound: plucked-string synth, strums, metronome clicks, microphone, pitch detection. */
+/* First Frets: sound: plucked-string synth, strums, metronome clicks, microphone, pitch detection. */
 'use strict';
 
 const Sound = (() => {
@@ -21,7 +21,7 @@ const Sound = (() => {
 
   const midiToFreq = (m) => 440 * Math.pow(2, (m - 69) / 12);
 
-  // Karplus–Strong: a burst of noise fed through a short delay line sounds like a plucked string.
+  // Karplus-Strong: a burst of noise fed through a short delay line sounds like a plucked string.
   function pluckBuffer(midi) {
     if (buffers.has(midi)) return buffers.get(midi);
     const c = get();

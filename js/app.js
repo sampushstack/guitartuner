@@ -1,4 +1,4 @@
-/* First Frets — interface: tuner, chord path, change trainer, play-along songs, progress. */
+/* First Frets: interface: tuner, chord path, change trainer, play-along songs, progress. */
 (() => {
   'use strict';
 
@@ -46,7 +46,7 @@
   function starCount() { return CHORD_NAMES.filter((c) => state.stars[c]).length; }
   function renderStats() {
     $('#stat-stars').textContent = starCount();
-    $('.stat-of').textContent = `/${CHORD_NAMES.length} chords`;
+    $('#stat-of').textContent = `of ${CHORD_NAMES.length} chords`;
     $('#stat-streak').textContent = streak();
   }
 
@@ -223,7 +223,7 @@
     toast(state.lefty ? 'Chord pictures flipped for left-handed playing' : 'Chord pictures set for right-handed playing');
   });
 
-  /* ================= 1 · TUNER ================= */
+  /* ================= Tuner ================= */
   const tuner = {
     on: false, raf: 0, target: null, history: [], quiet: 0,
     goodSince: 0, current: -1, tuned: new Set(), buf: new Float32Array(4096),
@@ -251,7 +251,7 @@
       b.className = 'peg';
       b.dataset.s = i;
       b.setAttribute('aria-label', `${s.name} string, number ${s.num}. Play its note and tune this string.`);
-      b.innerHTML = `<span class="peg-letter">${s.name}</span><span class="peg-sub">${s.num} · ${s.nick}</span>`;
+      b.innerHTML = `<span class="peg-letter">${s.name}</span><span class="peg-sub">${s.nick}</span>`;
       b.addEventListener('click', () => selectString(i, true));
       col.appendChild(b);
     });
@@ -304,7 +304,15 @@
   });
 
   function setMsg(text) { $('#tune-msg').textContent = text; }
-  function setState(s) { $('#readout').dataset.state = s; }
+  function setState(s) {
+    $('#readout').dataset.state = s;
+    if (s === 'idle') {
+      $('#note-name').innerHTML = '<i class="ph-bold ph-ear" aria-hidden="true"></i>';
+      $('#note-oct').textContent = '';
+      $('#hz').textContent = '0.0 Hz';
+      $('#cents').textContent = '0 cents';
+    }
+  }
   function setNeedle(cents) {
     const c = Math.max(-50, Math.min(50, cents));
     $('#needle').style.transform = `rotate(${c * 1.2}deg)`;
@@ -381,13 +389,14 @@
     $('#note-name').textContent = NOTE_NAMES[((nearest % 12) + 12) % 12];
     $('#note-oct').textContent = Math.floor(nearest / 12) - 1;
     $('#hz').textContent = `${freq.toFixed(1)} Hz`;
-    $('#cents').textContent = `${cents > 0 ? '+' : cents < 0 ? '−' : '±'} ${Math.abs(Math.round(cents))} cents`;
+    const rc = Math.round(cents);
+    $('#cents').textContent = `${rc > 0 ? '+' : rc < 0 ? '−' : ''}${Math.abs(rc)} cents`;
     setNeedle(cents);
 
     const name = STRINGS[s].name;
     if (Math.abs(cents) <= 5) {
       setState('good');
-      setMsg(`${name} is in tune. Nice!`);
+      setMsg(`${name} is in tune. Nice work.`);
       if (!tuner.goodSince) tuner.goodSince = now;
       if (now - tuner.goodSince > 700 && !tuner.tuned.has(s)) stringTuned(s);
     } else {
@@ -396,47 +405,54 @@
       setState(low ? 'low' : 'high');
       if (Math.abs(cents) > 150) setMsg(low ? `Way too low for ${name}. Tighten the peg a few turns.` : `Way too high for ${name}. Loosen the peg a few turns.`);
       else if (Math.abs(cents) > 25) setMsg(low ? `Too low. Tighten the ${name} peg so the sound goes up.` : `Too high. Loosen the ${name} peg so the sound goes down.`);
-      else setMsg(low ? 'Almost! A tiny bit low. Tighten very slowly.' : 'Almost! A tiny bit high. Loosen a touch, then come back up.');
+      else setMsg(low ? 'Almost there. A tiny bit low, so tighten very slowly.' : 'Almost there. A tiny bit high, so loosen a touch, then come back up.');
     }
   }
 
   function stringTuned(i) {
     tuner.tuned.add(i);
-    $(`.peg[data-s="${i}"]`).classList.add('done');
+    $(`.peg[data-s="${i}"]`).insertAdjacentHTML('beforeend', '<i class="ph-fill ph-check-circle peg-done" aria-hidden="true"></i>');
+    $(`.peg[data-s="${i}"]`).setAttribute('aria-label', `${STRINGS[i].name} string, in tune. Play its note again.`);
     $(`#hs-strings polyline[data-s="${i}"]`).classList.add('done');
     Sound.chime();
     const rect = $(`.peg[data-s="${i}"]`).getBoundingClientRect();
     confetti.burst(18, (rect.left + rect.width / 2) / innerWidth, (rect.top + rect.height / 2) / innerHeight);
     if (tuner.tuned.size === 6) {
-      setMsg('All six strings are in tune. Time to play!');
+      setMsg('All six strings are in tune. Time to play.');
       $('#to-chords').hidden = false;
       confetti.burst(120);
     } else {
-      toast(`${STRINGS[i].name} string tuned · ${6 - tuner.tuned.size} to go`);
+      toast(`${STRINGS[i].name} string tuned. ${6 - tuner.tuned.size} to go.`);
     }
   }
 
-  /* ================= 2 · CHORDS ================= */
+  /* ================= Chords ================= */
   function renderPath() {
     const path = $('#path');
     path.replaceChildren();
-    STAGES.forEach((stage, si) => {
+    STAGES.forEach((stage) => {
       const li = document.createElement('li');
       li.className = 'stage';
       if (stage.chords.includes(state.chord)) li.classList.add('current');
       const done = stage.chords.filter((c) => state.stars[c]).length;
+      const complete = done === stage.chords.length;
+      if (complete) li.classList.add('done');
       li.innerHTML = `
-        <div class="stage-head"><span class="stage-num">${si + 1}</span><span class="stage-title">${stage.title}</span></div>
+        <span class="stage-node" aria-hidden="true">${complete ? '<i class="ph-bold ph-check"></i>' : ''}</span>
+        <h3 class="stage-title">${stage.title}</h3>
         <p class="stage-blurb">${stage.blurb}</p>
         <div class="stage-chips"></div>
-        <div class="stage-progress" title="${done} of ${stage.chords.length} starred"><span style="width:${(done / stage.chords.length) * 100}%"></span></div>`;
+        <p class="stage-count">${complete ? 'All starred' : `${done} of ${stage.chords.length} starred`}</p>`;
       const chips = $('.stage-chips', li);
       stage.chords.forEach((name) => {
         const b = document.createElement('button');
         b.className = 'chip';
         b.textContent = name;
         b.setAttribute('aria-pressed', String(name === state.chord));
-        if (state.stars[name]) { b.classList.add('starred'); b.setAttribute('aria-label', `${name}, starred`); }
+        if (state.stars[name]) {
+          b.insertAdjacentHTML('beforeend', '<i class="ph-fill ph-star" aria-hidden="true"></i>');
+          b.setAttribute('aria-label', `${name}, starred`);
+        }
         b.addEventListener('click', () => { state.chord = name; save(); stopCheck(); renderChord(); renderPath(); });
         chips.appendChild(b);
       });
@@ -455,6 +471,7 @@
     const starred = !!state.stars[name];
     $('#cd-star').setAttribute('aria-pressed', String(starred));
     $('#cd-star-label').textContent = starred ? 'Starred: you can play this one' : 'I can play this one';
+    $('.hand-side').textContent = state.lefty ? 'right' : 'left';
   }
 
   function setStar(name, on) {
@@ -466,7 +483,7 @@
     renderSongList();
     const stage = STAGES.find((s) => s.chords.includes(name));
     if (on && stage.chords.every((c) => state.stars[c])) {
-      toast(`Stage complete: ${stage.title}!`);
+      toast(`Every chord in “${stage.title}” is starred.`);
       confetti.burst(100);
     }
   }
@@ -579,14 +596,14 @@
     const panel = $('#check-panel');
     if (pass) {
       panel.classList.add('pass');
-      $('#check-status').textContent = `That’s a clean ${name}!`;
+      $('#check-status').textContent = `That’s a clean ${name}.`;
       $('#check-advice').textContent = state.stars[name] ? 'Still sounding great. Try switching to it in the Change trainer.' : 'Every note rang out. We’ve given you a star for it.';
       if (!state.stars[name]) setStar(name, true);
       Sound.chime();
       confetti.burst(80);
       return;
     }
-    $('#check-status').textContent = 'Close! Let’s fix one thing';
+    $('#check-status').textContent = 'Almost. Let’s fix one thing.';
     let advice = '';
     if (weak.length) {
       const pc = weak[0].pc;
@@ -618,7 +635,11 @@
 
   $('#cd-check').addEventListener('click', () => (check.on ? stopCheck() : startCheck()));
 
-  /* ================= 3 · CHANGE TRAINER ================= */
+  function setPlayButton(btn, playing, label) {
+    btn.innerHTML = `<i class="ph-fill ph-${playing ? 'stop' : 'play'}" aria-hidden="true"></i><span>${label}</span>`;
+  }
+
+  /* ================= Change trainer ================= */
   const tr = { beats: 4 };
   const trainerClock = new Clock(trainerStep, trainerVisual);
 
@@ -626,7 +647,7 @@
     sel.replaceChildren();
     STAGES.forEach((stage, si) => {
       const g = document.createElement('optgroup');
-      g.label = `Stage ${si + 1} · ${stage.title}`;
+      g.label = stage.title;
       stage.chords.forEach((name) => {
         const o = document.createElement('option');
         o.value = name;
@@ -683,14 +704,14 @@
 
   function startTrainer() {
     trainerClock.start(Number($('#tr-bpm').value));
-    $('#tr-go').textContent = 'Stop';
+    setPlayButton($('#tr-go'), true, 'Stop');
     $('#tr-go').classList.add('is-on');
     markPracticed();
   }
   function stopTrainer() {
     if (!trainerClock.running) return;
     trainerClock.stop();
-    $('#tr-go').textContent = 'Start';
+    setPlayButton($('#tr-go'), false, 'Start');
     $('#tr-go').classList.remove('is-on');
     $$('#tr-beats .beat').forEach((d) => d.classList.remove('on'));
     renderTrainer(0);
@@ -724,7 +745,8 @@
 
   function renderChallengeBest() {
     const best = state.best[pairKey()];
-    $('#ch-best').textContent = best ? `${best}` : '–';
+    $('#ch-best').textContent = best ? `${best}` : 'none yet';
+    $('#ch-best').classList.toggle('mono', !!best);
   }
 
   function tapChallenge() {
@@ -768,14 +790,14 @@
     if (ch.count > prev) {
       state.best[key] = ch.count;
       save();
-      if (prev) { toast(`New best: ${ch.count} changes (was ${prev})`); confetti.burst(90); } else toast(`First score: ${ch.count} changes. Beat it tomorrow!`);
+      if (prev) { toast(`New best: ${ch.count} changes, up from ${prev}.`); confetti.burst(90); } else toast(`First score: ${ch.count} changes. Try to beat it tomorrow.`);
     } else {
-      toast(`${ch.count} changes. Your best is ${prev}. Keep going!`);
+      toast(`${ch.count} changes. Your best is ${prev}.`);
     }
     Sound.chime();
     renderChallengeBest();
     ch.phase = 'cooldown';
-    $('#ch-tap-label').textContent = 'Time!';
+    $('#ch-tap-label').textContent = 'Time’s up';
     setTimeout(() => { ch.phase = 'idle'; $('#ch-tap-label').textContent = 'Try again'; }, 1500);
   }
 
@@ -787,7 +809,7 @@
     tapChallenge();
   });
 
-  /* ================= 4 · SONGS ================= */
+  /* ================= Songs ================= */
   const COUNT_IN = 8; // eighth-note steps = four beats
   const songClock = new Clock(songStep, songVisual);
   const song = () => SONGS.find((s) => s.id === state.song) || SONGS[0];
@@ -801,8 +823,9 @@
       const li = document.createElement('li');
       li.innerHTML = `<button class="song" aria-pressed="${s.id === state.song}">
         <span class="song-title">${s.title}</span>
-        <span class="song-meta"><span>${uniq.join(' · ')}</span><span>${s.vibe}</span>
-        ${known === uniq.length ? '<span class="song-ready">★ You know every chord</span>' : `<span>${known}/${uniq.length} chords starred</span>`}</span>
+        <span class="song-chords">${uniq.join('  ')}</span>
+        <span class="song-meta">${s.vibe}</span>
+        ${known === uniq.length ? '<span class="song-ready"><i class="ph-fill ph-star" aria-hidden="true"></i>You know every chord</span>' : `<span class="song-meta">${known} of ${uniq.length} chords starred</span>`}
       </button>`;
       $('button', li).addEventListener('click', () => {
         stopSong();
@@ -816,8 +839,6 @@
       list.appendChild(li);
     });
   }
-
-  const ARROW = '<svg viewBox="0 0 28 40" aria-hidden="true"><path d="M10 0h8v24h10L14 40 0 24h10z"/></svg>';
 
   function renderSong() {
     const s = song();
@@ -839,7 +860,7 @@
       const d = document.createElement('div');
       d.className = `strum ${p === 'D' ? 'down' : p === 'U' ? 'up' : 'rest'}`;
       d.dataset.i = i;
-      d.innerHTML = ARROW;
+      d.innerHTML = p ? `<i class="ph-bold ph-arrow-${p === 'D' ? 'down' : 'up'}" aria-hidden="true"></i>` : '';
       d.setAttribute('aria-label', p === 'D' ? 'down' : p === 'U' ? 'up' : 'miss');
       strums.appendChild(d);
     });
@@ -876,14 +897,14 @@
 
   function startSong() {
     songClock.start(Number($('#pl-bpm').value));
-    $('#pl-go').textContent = 'Stop';
+    setPlayButton($('#pl-go'), true, 'Stop');
     $('#pl-go').classList.add('is-on');
     markPracticed();
   }
   function stopSong() {
     if (!songClock.running) return;
     songClock.stop();
-    $('#pl-go').textContent = 'Play';
+    setPlayButton($('#pl-go'), false, 'Play');
     $('#pl-go').classList.remove('is-on');
     $('#pl-count').textContent = '';
     $$('#pl-bars .bar, #pl-strums .strum').forEach((d) => d.classList.remove('on'));
