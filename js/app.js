@@ -327,6 +327,8 @@
     }
     tuner.on = true;
     tuner.history = [];
+    tuner.pending = 0;
+    Pitch.reset();
     $('#mic-label').textContent = 'Stop listening';
     $('#mic-btn').classList.add('is-on');
     setMsg('Pluck one string and let it ring…');
@@ -352,17 +354,43 @@
     return s[Math.floor(s.length / 2)];
   }
 
+  // Ignore one-off stray readings: a new note must be heard twice in a row before the needle moves to it.
+  function acceptReading(f) {
+    const h = tuner.history;
+    const cents = (a, b) => Math.abs(1200 * Math.log2(a / b));
+    if (h.length && cents(f, median(h)) > 80) {
+      if (tuner.pending && cents(f, tuner.pending) < 80) {
+        tuner.history = [tuner.pending, f];
+        tuner.pending = 0;
+        return true;
+      }
+      tuner.pending = f;
+      return false;
+    }
+    tuner.pending = 0;
+    h.push(f);
+    if (h.length > 7) h.shift();
+    return true;
+  }
+
+  // Live microphone level, so players can see the tuner is hearing them.
+  function showLevel(res) {
+    const db = 20 * Math.log10(Math.max(res.level || 0, 1e-5) / 0.0002);
+    const bar = $('#mic-level');
+    bar.style.transform = `scaleX(${Math.max(0.02, Math.min(1, db / 50)).toFixed(3)})`;
+    bar.classList.toggle('heard', (res.level || 0) >= (res.gate || 1));
+  }
+
   function tunerLoop() {
     if (!tuner.on || !Mic.wave) return;
     Mic.wave.getFloatTimeDomainData(tuner.buf);
     const now = performance.now();
-    const res = now < (tuner.mutedUntil || 0) ? { freq: -1 } : Pitch.detect(tuner.buf, Sound.get().sampleRate);
-    if (res.freq > 0) {
+    const res = now < (tuner.mutedUntil || 0) ? { freq: -1, level: 0, gate: 1 } : Pitch.detect(tuner.buf, Sound.get().sampleRate);
+    showLevel(res);
+    if (res.freq > 0 && acceptReading(res.freq)) {
       tuner.quiet = 0;
-      tuner.history.push(res.freq);
-      if (tuner.history.length > 7) tuner.history.shift();
-      if (tuner.history.length >= 3) showPitch(median(tuner.history), now);
-    } else if (++tuner.quiet > 40) {
+      if (tuner.history.length >= 2) showPitch(median(tuner.history), now);
+    } else if (++tuner.quiet > 90) {
       tuner.history = [];
       tuner.goodSince = 0;
       if ($('#readout').dataset.state !== 'idle') {
@@ -539,6 +567,7 @@
     check.chroma.fill(0);
     check.voiced = 0;
     check.t0 = performance.now();
+    Pitch.reset();
     check.scratch = new Float32Array(Mic.spectrum.frequencyBinCount);
     check.wave = new Float32Array(Mic.wave.fftSize);
     $('#check-status').textContent = `Strum ${state.chord} now and let it ring…`;
@@ -557,7 +586,8 @@
   function checkLoop() {
     if (!check.on || !Mic.wave) return;
     Mic.wave.getFloatTimeDomainData(check.wave);
-    if (Pitch.rms(check.wave) > 0.015) {
+    const heard = Pitch.detect(check.wave, Sound.get().sampleRate);
+    if (heard.level >= heard.gate * 1.5) {
       check.voiced++;
       Pitch.addChroma(Mic.spectrum, Sound.get().sampleRate, check.chroma, check.scratch);
       $('#check-meter').style.width = `${Math.min(100, (check.voiced / NEEDED_FRAMES) * 100)}%`;
@@ -944,5 +974,15 @@
 
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) { stopTrainer(); stopSong(); }
+    else if (tuner.on || check.on) Sound.get();
   });
+
+  Mic.onlost = () => {
+    const wasTuning = tuner.on;
+    stopTuner();
+    stopCheck();
+    Mic.stop();
+    const msg = 'The microphone stopped, maybe because another app took it. Press “Start listening” to try again.';
+    if (wasTuning) setMsg(msg); else toast(msg);
+  };
 })();
