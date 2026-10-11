@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>First Frets</title>
+<meta name="description" content="A friendly guitar tuner and chord coach for beginners of every age, from 10 to 70 and beyond.">
+<meta property="og:title" content="First Frets">
+<meta property="og:description" content="Tune your guitar, learn your first chords and play along. Made for beginners of every age.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#d6ece3" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1d22" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M16 30C10 24 3 15 3 9c0-4 5-6 13-6s13 2 13 6c0 6-7 15-13 21z' fill='%23d63a6c' stroke='%2313233b' stroke-width='2'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400;500;600;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=DM+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="vendor/phosphor/phosphor.css">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+  <a class="brand" href="#tune" data-view="tune" aria-label="First Frets home">
+    <svg class="brand-pick" viewBox="0 0 32 32" aria-hidden="true"><path d="M16 30C10 24 3 15 3 9c0-4 5-6 13-6s13 2 13 6c0 6-7 15-13 21z"/></svg>
+    <span>First Frets</span>
+  </a>
+
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    <button class="tab" role="tab" id="tab-tune" data-view="tune" aria-controls="view-tune"><i class="ph-bold ph-waveform" aria-hidden="true"></i>Tune</button>
+    <button class="tab" role="tab" id="tab-chords" data-view="chords" aria-controls="view-chords"><i class="ph-bold ph-hand" aria-hidden="true"></i>Chords</button>
+    <button class="tab" role="tab" id="tab-trainer" data-view="trainer" aria-controls="view-trainer"><i class="ph-bold ph-metronome" aria-hidden="true"></i>Changes</button>
+    <button class="tab" role="tab" id="tab-songs" data-view="songs" aria-controls="view-songs"><i class="ph-bold ph-music-notes" aria-hidden="true"></i>Songs</button>
+  </nav>
+
+  <div class="prefs">
+    <p class="stats" aria-live="polite">
+      <span class="stat" title="Chords you can play"><i class="ph-fill ph-star" aria-hidden="true"></i><b id="stat-stars">0</b><span class="stat-of" id="stat-of">of 16 chords</span></span>
+      <span class="stat" title="Days in a row you have practised"><i class="ph-fill ph-flame" aria-hidden="true"></i><b id="stat-streak">0</b><span class="stat-of">day streak</span></span>
+    </p>
+    <button class="pref" id="pref-big" aria-pressed="false" title="Make all text larger"><i class="ph-bold ph-text-aa" aria-hidden="true"></i><span class="sr">Larger text</span></button>
+    <button class="pref" id="pref-lefty" aria-pressed="false" title="Flip chord pictures for left-handed players">Lefty</button>
+  </div>
+</header>
+
+<main id="main" tabindex="-1">
+
+  <!-- Tune -->
+  <section class="view" id="view-tune" role="tabpanel" aria-labelledby="tab-tune">
+    <div class="view-head">
+      <div class="view-intro">
+        <h1>Tune up first</h1>
+        <p class="lede">Pluck one string at a time and follow the needle. Tap a peg to hear the right note.</p>
+      </div>
+      <button class="btn btn-primary btn-big" id="mic-btn">
+        <i class="ph-bold ph-microphone" aria-hidden="true"></i>
+        <span id="mic-label">Start listening</span>
+      </button>
+    </div>
+
+    <div class="tuner">
+      <div class="headstock-wrap" aria-label="Guitar strings. Tap one to hear its note.">
+        <div class="pegs pegs-left" id="pegs-left"></div>
+        <svg class="headstock" viewBox="0 0 160 330" aria-hidden="true">
+          <path class="hs-wood" d="M30 20 Q80 -6 130 20 L140 250 Q120 268 112 300 L112 330 L48 330 L48 300 Q40 268 20 250 Z"/>
+          <path class="hs-face" d="M38 32 Q80 12 122 32 L130 244 Q114 258 106 288 L54 288 Q46 258 30 244 Z"/>
+          <rect class="hs-nut" x="46" y="288" width="68" height="10" rx="3"/>
+          <g class="hs-strings" id="hs-strings"></g>
+          <g class="hs-posts" id="hs-posts"></g>
+        </svg>
+        <div class="pegs pegs-right" id="pegs-right"></div>
+      </div>
+
+      <div class="readout sticker" id="readout" data-state="idle">
+        <div class="readout-top">
+          <label class="switch">
+            <input type="checkbox" id="auto-string" checked>
+            <span class="switch-track" aria-hidden="true"></span>
+            <span>Find the string for me</span>
+          </label>
+          <span class="target-label" id="target-label">Listening for any string</span>
+        </div>
+
+        <div class="note-pick">
+          <svg viewBox="0 0 120 130" aria-hidden="true"><path d="M60 126C38 104 6 66 6 38 6 16 28 6 60 6s54 10 54 32c0 28-32 66-54 88z"/></svg>
+          <span class="note-name" id="note-name"><i class="ph-bold ph-ear" aria-hidden="true"></i></span>
+          <span class="note-oct" id="note-oct"></span>
+        </div>
+
+        <svg class="gauge" viewBox="0 0 300 172" role="img" aria-labelledby="gauge-title">
+          <title id="gauge-title">Tuning meter. The needle in the middle means in tune.</title>
+          <path class="g-arc" d="M46.1 90 A120 120 0 0 1 253.9 90"/>
+          <path class="g-zone" d="M137.5 30.7 A120 120 0 0 1 162.5 30.7"/>
+          <g id="g-ticks"></g>
+          <text class="g-end" x="30" y="146">Too low</text>
+          <text class="g-end" x="270" y="146" text-anchor="end">Too high</text>
+          <g class="needle" id="needle">
+            <line x1="150" y1="150" x2="150" y2="44"/>
+            <circle cx="150" cy="150" r="10"/>
+          </g>
+        </svg>
+
+        <div class="readout-nums">
+          <span id="hz">0.0 Hz</span>
+          <span id="cents">0 cents</span>
+        </div>
+        <p class="tune-msg" id="tune-msg" aria-live="polite">Press “Start listening”, then pluck one string and let it ring.</p>
+        <button class="btn btn-quiet" id="to-chords" data-view="chords" hidden>Learn a chord <i class="ph-bold ph-arrow-right" aria-hidden="true"></i></button>
+      </div>
+    </div>
+
+    <div class="string-legend" aria-label="The six strings from thickest to thinnest">
+      <h2 class="legend-title">Remember the strings, thickest to thinnest</h2>
+      <ol class="legend-row">
+        <li><b>E</b><span>Every</span><i style="--w:5px"></i></li>
+        <li><b>A</b><span>Amazing</span><i style="--w:4.2px"></i></li>
+        <li><b>D</b><span>Dog</span><i style="--w:3.4px"></i></li>
+        <li><b>G</b><span>Gets</span><i style="--w:2.6px"></i></li>
+        <li><b>B</b><span>Biscuits</span><i style="--w:1.8px"></i></li>
+        <li><b>E</b><span>Eventually</span><i style="--w:1.2px"></i></li>
+      </ol>
+      <div class="legend-tips">
+        <p><b>Tune up to the note.</b> If a string is too high, loosen it until it is a little low, then tighten back up. It holds its tune better that way.</p>
+        <p><b>Small turns, big change.</b> Turn the peg a tiny bit, pluck again and watch the needle. Strings can snap if you crank them too tight.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Chords -->
+  <section class="view" id="view-chords" role="tabpanel" aria-labelledby="tab-chords" hidden>
+    <div class="view-head">
+      <div class="view-intro">
+        <h1>Learn your first chords</h1>
+        <p class="lede">Copy the picture, strum, and let the app listen. Star each chord once it rings clearly.</p>
+      </div>
+    </div>
+
+    <ol class="path" id="path" aria-label="Chord path, easiest first"></ol>
+
+    <div class="chord-stage">
+      <div class="chord-card sticker">
+        <div class="chord-title">
+          <h2 id="cd-name">Em7</h2>
+          <div>
+            <p class="chord-full" id="cd-full">E minor 7</p>
+            <p class="chord-level" id="cd-level"></p>
+          </div>
+        </div>
+        <div class="diagram" id="cd-diagram"></div>
+        <ul class="finger-key" aria-label="Finger colours">
+          <li><span class="fdot f1">1</span>Pointer</li>
+          <li><span class="fdot f2">2</span>Middle</li>
+          <li><span class="fdot f3">3</span>Ring</li>
+          <li><span class="fdot f4">4</span>Pinky</li>
+        </ul>
+      </div>
+
+      <div class="chord-side">
+        <p class="chord-tip" id="cd-tip"></p>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="cd-strum"><i class="ph-bold ph-speaker-high" aria-hidden="true"></i>Hear it</button>
+          <button class="btn" id="cd-arp"><i class="ph-bold ph-playlist" aria-hidden="true"></i>String by string</button>
+          <button class="btn" id="cd-check"><i class="ph-bold ph-microphone" aria-hidden="true"></i>Check my chord</button>
+        </div>
+
+        <div class="check" id="check-panel" hidden>
+          <div class="check-head">
+            <p class="check-status" id="check-status" aria-live="polite">Strum the chord now</p>
+            <div class="check-meter" aria-hidden="true"><span id="check-meter"></span></div>
+          </div>
+          <div class="check-notes" id="check-notes"></div>
+          <p class="check-advice" id="check-advice"></p>
+        </div>
+
+        <button class="star-btn" id="cd-star" aria-pressed="false">
+          <i class="ph-bold ph-star star-off" aria-hidden="true"></i><i class="ph-fill ph-star star-on" aria-hidden="true"></i>
+          <span id="cd-star-label">I can play this one</span>
+        </button>
+
+        <div class="reading">
+          <h3>Reading the picture</h3>
+          <dl>
+            <div><dt><span class="key-o" aria-hidden="true"></span>O</dt><dd>Play this string open, with no finger on it.</dd></div>
+            <div><dt><span class="key-x" aria-hidden="true">×</span>X</dt><dd>Don’t play this string.</dd></div>
+            <div><dt><span class="fdot f1" aria-hidden="true">1</span>Dot</dt><dd>Press here with that finger, just behind the metal fret.</dd></div>
+          </dl>
+          <p>Up-and-down lines are strings, with the thickest on the <span class="hand-side">left</span>. Side-to-side lines are frets.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Changes -->
+  <section class="view" id="view-trainer" role="tabpanel" aria-labelledby="tab-trainer" hidden>
+    <div class="view-head">
+      <div class="view-intro">
+        <h1>Change trainer</h1>
+        <p class="lede">Practise switching between two chords with the click. Slow and clean beats fast and messy.</p>
+      </div>
+    </div>
+
+    <div class="trainer">
+      <div class="trainer-main sticker">
+        <div class="trainer-controls">
+          <div class="field">
+            <label for="tr-a">First chord</label>
+            <select id="tr-a"></select>
+          </div>
+          <button class="swap" id="tr-swap" aria-label="Swap the two chords"><i class="ph-bold ph-arrows-left-right" aria-hidden="true"></i></button>
+          <div class="field">
+            <label for="tr-b">Second chord</label>
+            <select id="tr-b"></select>
+          </div>
+          <div class="field field-wide">
+            <label for="tr-bpm">Speed <output id="tr-bpm-out" class="mono">60</output> <span class="unit">beats per minute</span></label>
+            <input type="range" id="tr-bpm" min="40" max="140" step="2" value="60">
+          </div>
+          <fieldset class="field segmented">
+            <legend>Beats on each chord</legend>
+            <label><input type="radio" name="tr-beats" value="2">2</label>
+            <label><input type="radio" name="tr-beats" value="4" checked>4</label>
+            <label><input type="radio" name="tr-beats" value="8">8</label>
+          </fieldset>
+          <label class="switch">
+            <input type="checkbox" id="tr-strum" checked>
+            <span class="switch-track" aria-hidden="true"></span>
+            <span>Strum along for me</span>
+          </label>
+        </div>
+
+        <div class="trainer-stage">
+          <div class="now">
+            <p class="small-label">Now</p>
+            <p class="now-name" id="tr-now-name">Em</p>
+            <div class="diagram" id="tr-now"></div>
+          </div>
+          <div class="next">
+            <p class="small-label">Next</p>
+            <p class="next-name" id="tr-next-name">Am</p>
+            <div class="diagram diagram-sm" id="tr-next"></div>
+          </div>
+        </div>
+        <div class="beats" id="tr-beats" aria-hidden="true"></div>
+        <button class="btn btn-primary btn-big" id="tr-go"><i class="ph-fill ph-play" aria-hidden="true"></i><span>Start</span></button>
+      </div>
+
+      <aside class="challenge" aria-labelledby="ch-title">
+        <h2 id="ch-title">One-minute changes</h2>
+        <p>Switch between the two chords as many times as you can in 60 seconds. Tap the button, or press the space bar, each time you land one.</p>
+        <div class="challenge-row">
+          <div class="timer mono"><i class="ph-bold ph-timer" aria-hidden="true"></i><span id="ch-timer">1:00</span></div>
+          <div class="best">Best <b class="mono" id="ch-best">none yet</b></div>
+        </div>
+        <button class="tap" id="ch-tap"><span class="mono" id="ch-count">0</span><span id="ch-tap-label">Start the minute</span></button>
+      </aside>
+    </div>
+  </section>
+
+  <!-- Songs -->
+  <section class="view" id="view-songs" role="tabpanel" aria-labelledby="tab-songs" hidden>
+    <div class="view-head">
+      <div class="view-intro">
+        <h1>Play-along songs</h1>
+        <p class="lede">Pick a song, press play, wait for the count of four, then strum with the arrows.</p>
+      </div>
+    </div>
+
+    <ul class="song-list" id="song-list" aria-label="Songs"></ul>
+
+    <div class="player sticker">
+      <div class="player-head">
+        <div>
+          <h2 id="pl-title">First Strum</h2>
+          <p class="player-note" id="pl-note"></p>
+        </div>
+        <div class="countin mono" id="pl-count" aria-live="polite"></div>
+      </div>
+
+      <div class="bars" id="pl-bars"></div>
+
+      <div class="strum-row">
+        <p class="small-label">Strum pattern</p>
+        <div class="strums" id="pl-strums"></div>
+        <p class="strum-count mono" aria-hidden="true"><span>1</span><span>&amp;</span><span>2</span><span>&amp;</span><span>3</span><span>&amp;</span><span>4</span><span>&amp;</span></p>
+      </div>
+
+      <div class="player-controls">
+        <button class="btn btn-primary btn-big" id="pl-go"><i class="ph-fill ph-play" aria-hidden="true"></i><span>Play</span></button>
+        <div class="field field-wide">
+          <label for="pl-bpm">Speed <output id="pl-bpm-out" class="mono">60</output> <span class="unit">beats per minute</span></label>
+          <input type="range" id="pl-bpm" min="40" max="140" step="2" value="60">
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="pl-backing" checked>
+          <span class="switch-track" aria-hidden="true"></span>
+          <span>Play the chords with me</span>
+        </label>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <p>Your stars and scores stay on this device. Sound and the microphone never leave your browser.</p>
+</footer>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<canvas class="confetti" id="confetti" aria-hidden="true"></canvas>
+
+<script src="js/data.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

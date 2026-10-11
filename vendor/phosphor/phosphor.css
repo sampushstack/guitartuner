@@ -1,0 +1,30 @@
+/* Phosphor Icons (MIT, phosphoricons.com) v2.1.1, trimmed to the glyphs First Frets uses. */
+@font-face{font-family:"Phosphor-Bold";src:url("./Phosphor-Bold.woff2") format("woff2");font-weight:normal;font-style:normal;font-display:block}
+.ph-bold{font-family:"Phosphor-Bold"!important;speak:never;font-style:normal;font-weight:normal;font-variant:normal;text-transform:none;line-height:1;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+.ph-bold.ph-guitar:before{content:"\ea8a"}
+.ph-bold.ph-waveform:before{content:"\e802"}
+.ph-bold.ph-hand:before{content:"\e298"}
+.ph-bold.ph-metronome:before{content:"\ec8e"}
+.ph-bold.ph-music-notes:before{content:"\e340"}
+.ph-bold.ph-microphone:before{content:"\e326"}
+.ph-bold.ph-play:before{content:"\e3d0"}
+.ph-bold.ph-stop:before{content:"\e46c"}
+.ph-bold.ph-star:before{content:"\e46a"}
+.ph-bold.ph-flame:before{content:"\e624"}
+.ph-bold.ph-text-aa:before{content:"\e6ee"}
+.ph-bold.ph-arrows-left-right:before{content:"\e0a0"}
+.ph-bold.ph-check:before{content:"\e182"}
+.ph-bold.ph-arrow-right:before{content:"\e06c"}
+.ph-bold.ph-arrow-down:before{content:"\e03e"}
+.ph-bold.ph-arrow-up:before{content:"\e08e"}
+.ph-bold.ph-ear:before{content:"\e70c"}
+.ph-bold.ph-speaker-high:before{content:"\e44a"}
+.ph-bold.ph-timer:before{content:"\e492"}
+.ph-bold.ph-playlist:before{content:"\e6aa"}
+@font-face{font-family:"Phosphor-Fill";src:url("./Phosphor-Fill.woff2") format("woff2");font-weight:normal;font-style:normal;font-display:block}
+.ph-fill{font-family:"Phosphor-Fill"!important;speak:never;font-style:normal;font-weight:normal;font-variant:normal;text-transform:none;line-height:1;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+.ph-fill.ph-star:before{content:"\e46a"}
+.ph-fill.ph-flame:before{content:"\e624"}
+.ph-fill.ph-check-circle:before{content:"\e184"}
+.ph-fill.ph-play:before{content:"\e3d0"}
+.ph-fill.ph-stop:before{content:"\e46c"}
