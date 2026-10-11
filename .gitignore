@@ -1,0 +1,4 @@
+# Firebase CLI
+.firebase/
+*-debug.log
+node_modules/
