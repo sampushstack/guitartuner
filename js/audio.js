@@ -198,10 +198,115 @@ const Pitch = (() => {
     }
   }
 
+  // ---- Spectrum: picks WHICH note is loudest when two strings ring at once ----
+  const FFT_N = 8192;
+  const re = new Float32Array(FFT_N);
+  const im = new Float32Array(FFT_N);
+  const mag = new Float32Array(FFT_N / 2);
+  let hann = null;
+
+  // In-place radix-2 FFT of (re, im), length n (a power of two).
+  function fft(re, im, n) {
+    for (let i = 1, j = 0; i < n; i++) {
+      let bit = n >> 1;
+      for (; j & bit; bit >>= 1) j ^= bit;
+      j ^= bit;
+      if (i < j) { let t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; }
+    }
+    for (let len = 2; len <= n; len <<= 1) {
+      const ang = (-2 * Math.PI) / len, wr = Math.cos(ang), wi = Math.sin(ang);
+      for (let i = 0; i < n; i += len) {
+        let cr = 1, ci = 0;
+        for (let k = 0; k < len / 2; k++) {
+          const a = i + k, b = a + len / 2;
+          const tr = re[b] * cr - im[b] * ci, ti = re[b] * ci + im[b] * cr;
+          re[b] = re[a] - tr; im[b] = im[a] - ti;
+          re[a] += tr; im[a] += ti;
+          const ncr = cr * wr - ci * wi;
+          ci = cr * wi + ci * wr;
+          cr = ncr;
+        }
+      }
+    }
+  }
+
+  function spectrum(x) {
+    const n = Math.min(x.length, FFT_N);
+    if (!hann || hann.length !== n) {
+      hann = new Float32Array(n);
+      for (let i = 0; i < n; i++) hann[i] = 0.5 - 0.5 * Math.cos((2 * Math.PI * i) / (n - 1));
+    }
+    re.fill(0);
+    im.fill(0);
+    for (let i = 0; i < n; i++) re[i] = x[i] * hann[i];
+    fft(re, im, FFT_N);
+    for (let k = 0; k < FFT_N / 2; k++) mag[k] = Math.hypot(re[k], im[k]);
+  }
+
+  // YIN difference d(tau) = sum over the window of (x[i] - x[i+tau])^2, computed with FFTs:
+  // d = energy(window) + energy(shifted window) - 2 * cross-correlation. Same numbers as the
+  // direct double loop, at a fraction of the cost on slower phones.
+  const XC_N = 4096;
+  const ar = new Float64Array(XC_N), ai = new Float64Array(XC_N);
+  const br = new Float64Array(XC_N), bi = new Float64Array(XC_N);
+  function yinDifference(x, W, tauMax, out) {
+    ar.fill(0); ai.fill(0); br.fill(0); bi.fill(0);
+    for (let i = 0; i < W; i++) ar[i] = x[i];
+    for (let i = 0; i < W + tauMax + 1; i++) br[i] = x[i];
+    fft(ar, ai, XC_N);
+    fft(br, bi, XC_N);
+    for (let k = 0; k < XC_N; k++) {
+      const r = ar[k] * br[k] + ai[k] * bi[k];
+      const q = ar[k] * bi[k] - ai[k] * br[k];
+      ar[k] = r;
+      ai[k] = -q; // conjugate, so a forward FFT acts as the inverse
+    }
+    fft(ar, ai, XC_N);
+    let e0 = 0;
+    for (let i = 0; i < W; i++) e0 += x[i] * x[i];
+    let et = e0;
+    for (let tau = 1; tau <= tauMax; tau++) {
+      et += x[tau + W - 1] * x[tau + W - 1] - x[tau - 1] * x[tau - 1];
+      out[tau] = Math.max(0, e0 + et - (2 * ar[tau]) / XC_N);
+    }
+  }
+
+  // Strength of the spectrum near frequency f (largest of the three nearest bins).
+  function peakAt(f, bin) {
+    const k = Math.round(f / bin);
+    if (k < 1 || k + 1 >= mag.length) return 0;
+    return Math.max(mag[k - 1], mag[k], mag[k + 1]);
+  }
+
+  const WEIGHTS = [1, 0.9, 0.8, 0.7, 0.6];
+  // Harmonic sum: the candidate whose overtone series collects the most energy, on a
+  // quarter-semitone grid. A candidate needs a real fundamental of its own, which stops
+  // octave-down and two strings' shared low "ghost" notes from winning. Returns 0 when nothing fits.
+  function strongestNote(sr, lo, hi, focused = false) {
+    const bin = sr / FFT_N;
+    let top = 0;
+    for (let k = Math.floor(lo / bin); k <= Math.ceil((hi * 2) / bin) && k < mag.length; k++) if (mag[k] > top) top = mag[k];
+    if (!top) return 0;
+    let best = 0, bestScore = 0;
+    for (let m = 12 * Math.log2(lo / 440) + 69; m <= 12 * Math.log2(hi / 440) + 69; m += 0.25) {
+      const f = 440 * Math.pow(2, (m - 69) / 12);
+      const h1 = peakAt(f, bin), h2 = peakAt(2 * f, bin), h3 = peakAt(3 * f, bin);
+      const own = Math.max(h1, h2, h3);
+      // Loud enough overall (less strict when the player chose this string), with a real
+      // fundamental compared to its own overtones (phone mics turn the low E's fundamental down).
+      if (own < (focused ? 0.1 : 0.25) * top || h1 < 0.15 * own) continue;
+      let score = 0;
+      for (let h = 1; h <= 5; h++) score += WEIGHTS[h - 1] * peakAt(h * f, bin);
+      if (score > bestScore) { bestScore = score; best = f; }
+    }
+    return best;
+  }
+
   // YIN pitch detection, limited to the guitar's range (about 65 Hz to 1 kHz).
   // The loudness gate follows the room's noise level, so quiet microphones and fading
   // notes still get through, while background noise alone never produces a reading.
-  function detect(buf, sr) {
+  // `hint` (optional) is the frequency of the string the player chose; the search favours notes near it.
+  function detect(buf, sr, hint = 0) {
     if (!work || work.length !== buf.length) work = new Float32Array(buf.length);
     prefilter(buf, sr, work);
     // Skip the filter's start-up ring at the front of the frame when there is room to.
@@ -215,39 +320,55 @@ const Pitch = (() => {
       if (warm.length === 12) floor = Math.max(0.00015, Math.min(...warm));
       return { freq: -1, level, gate: 1 };
     }
-    // The noise floor follows the quietest recent level: it drops at once and rises only
-    // about 12% a second, so a held note can never be mistaken for background noise.
-    floor = level < floor ? floor * 0.5 + level * 0.5 : Math.min(floor * 1.002, level);
+    const tauMin = Math.floor(sr / 1000);
+    if (!diff || diff.length < tauMax + 2) diff = new Float32Array(tauMax + 2);
+    yinDifference(x, W, tauMax, diff);
+    diff[0] = 1;
+    let running = 0;
+    for (let tau = 1; tau <= tauMax; tau++) {
+      running += diff[tau];
+      diff[tau] = running ? (diff[tau] * tau) / running : 1;
+    }
+    // The noise floor is learned only from frames with no musical content, so a string (or two)
+    // still ringing from earlier never counts as "background". Strings show sharp peaks in the
+    // spectrum; room noise is flat. A note also proves the noise is well below it.
+    spectrum(x);
+    const bin = sr / FFT_N;
+    let peak = 0, sum = 0, count = 0;
+    for (let k = Math.ceil(70 / bin); k <= Math.floor(2000 / bin); k++) { sum += mag[k]; count++; if (mag[k] > peak) peak = mag[k]; }
+    const tonal = count && peak > 10 * (sum / count);
+    if (!tonal) floor = level < floor ? floor * 0.6 + level * 0.4 : floor * 0.97 + level * 0.03;
+    else floor = Math.min(floor, level * 0.3);
     floor = Math.max(floor, 0.00015);
     const gate = Math.max(0.0005, floor * 2);
     if (level < gate) return { freq: -1, level, gate };
 
-    const tauMin = Math.floor(sr / 1000);
-    if (!diff || diff.length < tauMax + 2) diff = new Float32Array(tauMax + 2);
-    diff[0] = 1;
-    let running = 0;
-    for (let tau = 1; tau <= tauMax; tau++) {
-      let s = 0;
-      for (let i = 0; i < W; i++) {
-        const d = x[i] - x[i + tau];
-        s += d * d;
-      }
-      running += s;
-      diff[tau] = running ? (s * tau) / running : 1;
-    }
-    // First dip under the strict threshold; failing that, the deepest dip if it is still clearly periodic.
-    let tau = -1;
+    // 1. The clean case: one string ringing gives a deep dip at its period.
+    let yin = -1;
     for (let t = tauMin; t <= tauMax; t++) {
       if (diff[t] < 0.15) {
         while (t + 1 <= tauMax && diff[t + 1] < diff[t]) t++;
-        tau = t;
+        yin = t;
         break;
       }
     }
-    if (tau < 0) {
-      let best = tauMin;
-      for (let t = tauMin + 1; t <= tauMax; t++) if (diff[t] < diff[best]) best = t;
-      if (diff[best] < 0.2) tau = best;
+
+    // 2. The spectrum names the loudest note, so a string still ringing from earlier
+    //    can't hide the one just plucked. With a chosen string, look near it first.
+    let note = 0;
+    if (hint) note = strongestNote(sr, hint / 1.3, hint * 1.3, true);
+    if (!note) note = strongestNote(sr, 70, 1000);
+
+    let tau = -1;
+    if (yin > 0 && (!note || Math.abs(12 * Math.log2(sr / yin / note)) < 1)) {
+      tau = yin; // both methods agree, or the spectrum has no opinion
+    } else if (note) {
+      // 3. Measure the chosen note precisely: deepest dip within half a semitone of it.
+      const lo = Math.max(tauMin, Math.floor(sr / note / 1.03));
+      const hi = Math.min(tauMax - 1, Math.ceil((sr / note) * 1.03));
+      let best = -1;
+      for (let t = lo; t <= hi; t++) if (best < 0 || diff[t] < diff[best]) best = t;
+      if (best > 0 && diff[best] < 0.35) tau = best;
     }
     if (tau < 1) return { freq: -1, level, gate };
     const a = diff[tau - 1];

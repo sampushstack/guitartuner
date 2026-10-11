@@ -385,7 +385,8 @@
     if (!tuner.on || !Mic.wave) return;
     Mic.wave.getFloatTimeDomainData(tuner.buf);
     const now = performance.now();
-    const res = now < (tuner.mutedUntil || 0) ? { freq: -1, level: 0, gate: 1 } : Pitch.detect(tuner.buf, Sound.get().sampleRate);
+    const hint = tuner.target === null ? 0 : Sound.midiToFreq(OPEN_STRINGS[tuner.target]);
+    const res = now < (tuner.mutedUntil || 0) ? { freq: -1, level: 0, gate: 1 } : Pitch.detect(tuner.buf, Sound.get().sampleRate, hint);
     showLevel(res);
     if (res.freq > 0 && acceptReading(res.freq)) {
       tuner.quiet = 0;
