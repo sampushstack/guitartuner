@@ -15,7 +15,8 @@ const Sound = (() => {
       master.connect(comp);
       comp.connect(ctx.destination);
     }
-    if (ctx.state === 'suspended') ctx.resume();
+    // iOS can leave the clock 'suspended' or 'interrupted' (a call, another app); wake it either way.
+    if (ctx.state !== 'running' && ctx.state !== 'closed') ctx.resume().catch(() => {});
     return ctx;
   }
 
@@ -113,6 +114,7 @@ const Sound = (() => {
 
 const Mic = {
   stream: null,
+  onlost: null,
   wave: null,
   spectrum: null,
   async start() {
@@ -134,6 +136,8 @@ const Mic = {
     this.spectrum.smoothingTimeConstant = 0.4;
     src.connect(this.wave);
     src.connect(this.spectrum);
+    const track = this.stream.getAudioTracks()[0];
+    if (track) track.addEventListener('ended', () => { if (this.onlost) this.onlost(); });
   },
   stop() {
     if (this.stream) this.stream.getTracks().forEach((t) => t.stop());
@@ -151,6 +155,9 @@ function micErrorMessage(err) {
 
 const Pitch = (() => {
   let diff = null;
+  let work = null;
+  let floor = 0.0003; // running estimate of the room's background noise level
+  let warm = [];      // levels heard in the first moments after listening starts
 
   function rms(buf) {
     let s = 0;
@@ -158,25 +165,77 @@ const Pitch = (() => {
     return Math.sqrt(s / buf.length);
   }
 
+  // Call when listening starts: the first ~0.2 s is used to measure the room's noise.
+  function reset() { floor = 0.0003; warm = []; }
+
+  // Biquad coefficients (RBJ cookbook). A pair of these gives a steep 4th-order slope.
+  function biquad(type, f, q, sr) {
+    const w = (2 * Math.PI * f) / sr, cs = Math.cos(w), al = Math.sin(w) / (2 * q);
+    const b0 = type === 'hp' ? (1 + cs) / 2 : (1 - cs) / 2;
+    const b1 = type === 'hp' ? -(1 + cs) : 1 - cs;
+    const a0 = 1 + al;
+    return [b0 / a0, b1 / a0, b0 / a0, (-2 * cs) / a0, (1 - al) / a0];
+  }
+  let coefRate = 0;
+  let stages = [];
+
+  // Band-pass to the guitar's range: a steep cut below 70 Hz removes mains hum and rumble
+  // (the low E string is 82 Hz), and a gentler cut above 1.2 kHz removes hiss.
+  function prefilter(buf, sr, out) {
+    if (coefRate !== sr) {
+      coefRate = sr;
+      stages = [biquad('hp', 70, 0.541, sr), biquad('hp', 70, 1.307, sr), biquad('lp', 1200, 0.707, sr)];
+    }
+    out.set(buf);
+    for (const [b0, b1, b2, a1, a2] of stages) {
+      let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+      for (let i = 0; i < out.length; i++) {
+        const x = out[i];
+        const y = b0 * x + b1 * x1 + b2 * x2 - a1 * y1 - a2 * y2;
+        x2 = x1; x1 = x; y2 = y1; y1 = y;
+        out[i] = y;
+      }
+    }
+  }
+
   // YIN pitch detection, limited to the guitar's range (about 65 Hz to 1 kHz).
+  // The loudness gate follows the room's noise level, so quiet microphones and fading
+  // notes still get through, while background noise alone never produces a reading.
   function detect(buf, sr) {
-    const level = rms(buf);
-    if (level < 0.006) return { freq: -1, level };
+    if (!work || work.length !== buf.length) work = new Float32Array(buf.length);
+    prefilter(buf, sr, work);
+    // Skip the filter's start-up ring at the front of the frame when there is room to.
     const W = 2048;
+    const tauMax = Math.min(Math.floor(sr / 65), work.length - W - 1);
+    const skip = Math.max(0, Math.min(1024, work.length - W - tauMax - 1));
+    const x = skip ? work.subarray(skip) : work;
+    const level = rms(x);
+    if (warm && warm.length < 12) {
+      warm.push(level);
+      if (warm.length === 12) floor = Math.max(0.00015, Math.min(...warm));
+      return { freq: -1, level, gate: 1 };
+    }
+    // The noise floor follows the quietest recent level: it drops at once and rises only
+    // about 12% a second, so a held note can never be mistaken for background noise.
+    floor = level < floor ? floor * 0.5 + level * 0.5 : Math.min(floor * 1.002, level);
+    floor = Math.max(floor, 0.00015);
+    const gate = Math.max(0.0005, floor * 2);
+    if (level < gate) return { freq: -1, level, gate };
+
     const tauMin = Math.floor(sr / 1000);
-    const tauMax = Math.min(Math.floor(sr / 65), buf.length - W - 1);
     if (!diff || diff.length < tauMax + 2) diff = new Float32Array(tauMax + 2);
     diff[0] = 1;
     let running = 0;
     for (let tau = 1; tau <= tauMax; tau++) {
       let s = 0;
       for (let i = 0; i < W; i++) {
-        const d = buf[i] - buf[i + tau];
+        const d = x[i] - x[i + tau];
         s += d * d;
       }
       running += s;
       diff[tau] = running ? (s * tau) / running : 1;
     }
+    // First dip under the strict threshold; failing that, the deepest dip if it is still clearly periodic.
     let tau = -1;
     for (let t = tauMin; t <= tauMax; t++) {
       if (diff[t] < 0.15) {
@@ -185,13 +244,18 @@ const Pitch = (() => {
         break;
       }
     }
-    if (tau < 1) return { freq: -1, level };
+    if (tau < 0) {
+      let best = tauMin;
+      for (let t = tauMin + 1; t <= tauMax; t++) if (diff[t] < diff[best]) best = t;
+      if (diff[best] < 0.2) tau = best;
+    }
+    if (tau < 1) return { freq: -1, level, gate };
     const a = diff[tau - 1];
     const b = diff[tau];
     const c = tau + 1 <= tauMax ? diff[tau + 1] : b;
     const denom = a + c - 2 * b;
     const shift = denom ? (a - c) / (2 * denom) : 0;
-    return { freq: sr / (tau + shift), level, clarity: 1 - b };
+    return { freq: sr / (tau + shift), level, gate, clarity: 1 - b };
   }
 
   // Adds the strength of each of the 12 notes heard in the spectrum into `out`.
@@ -209,7 +273,7 @@ const Pitch = (() => {
     }
   }
 
-  return { detect, rms, addChroma };
+  return { detect, rms, reset, addChroma };
 })();
 
 // Look-ahead scheduler: audio is booked slightly ahead on the audio clock, visuals follow in sync.

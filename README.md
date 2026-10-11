@@ -32,7 +32,7 @@ Every push to `main` publishes the site to GitHub Pages through `.github/workflo
 
 ## How it works
 
-- `js/audio.js`: Karplus-Strong plucked-string synthesis for reference notes and strums, metronome clicks, a look-ahead scheduler, microphone input, YIN pitch detection for the tuner, and a pitch-class (chroma) analysis for chord checking.
+- `js/audio.js`: Karplus-Strong plucked-string synthesis for reference notes and strums, metronome clicks, a look-ahead scheduler, microphone input, YIN pitch detection for the tuner (with a hum and hiss filter and a loudness gate that adapts to the room's background noise), and a pitch-class (chroma) analysis for chord checking.
 - `js/data.js`: tuning, chord shapes and fingerings, learning stages and songs.
 - `js/app.js`: the interface.
 - `css/style.css`: design tokens and styles.
